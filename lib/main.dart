@@ -7,6 +7,7 @@ import 'package:hive/hive.dart';
 import 'package:movie_app/bootstrap.dart';
 import 'package:movie_app/common/global.dart';
 import 'package:movie_app/http/http_utils.dart';
+import 'package:movie_app/http/mock_interceptor.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -19,6 +20,7 @@ Future<void> main() async {
   //Init Main URL
   HttpUtils.init(
     baseUrl: Global.baseUrl,
+    interceptors: [MockInterceptor()],
   );
 
   WidgetsFlutterBinding.ensureInitialized();

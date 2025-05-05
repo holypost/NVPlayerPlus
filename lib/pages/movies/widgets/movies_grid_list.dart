@@ -33,14 +33,14 @@ class _MoviesGridViewState extends State<MoviesGridView> {
       });
     });
 
-    _pagingController = PagingController(firstPageKey: 1)
-      ..addPageRequestListener((pageKey) {
-        _fetchPage(pageKey);
-      });
+    _pagingController = PagingController<int, MovieItem>(
+      getNextPageKey: (state) => (state.keys?.last ?? 0) + 1,
+      fetchPage: _fetchPage,
+    );
     super.initState();
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future<List<MovieItem>> _fetchPage(int pageKey) async {
     final repository = RepositoryProvider.of<MoviesRepository>(context);
 
     final responseState = await repository.discoverMovies(
@@ -49,21 +49,15 @@ class _MoviesGridViewState extends State<MoviesGridView> {
     );
     if (responseState is Success) {
       final data = responseState.successValue;
-
       final movies = data.movies ?? [];
-      final isLastPage = movies.length < _pageSize;
-
-      if (isLastPage) {
-        _pagingController.appendLastPage(movies);
-      } else {
-        final nextPageKey = (data.page ?? pageKey) + 1;
-        _pagingController.appendPage(movies, nextPageKey);
-      }
+      return movies;
     } else if (responseState is NoConnection) {
-      _pagingController.error = responseState.errorValue;
+      throw responseState.errorValue ?? 'No connection';
     } else if (responseState is Fail) {
-      _pagingController.error = responseState.errorValue;
+      throw responseState.errorValue ?? 'Failed to load data';
     }
+    
+    return [];
   }
 
   @override
@@ -90,29 +84,28 @@ class _MoviesGridViewState extends State<MoviesGridView> {
               )
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: PagedGridView<int, MovieItem>(
-                  showNewPageProgressIndicatorAsGridChild: false,
-                  showNewPageErrorIndicatorAsGridChild: false,
-                  showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: gridDelegate(context),
-                  pagingController: _pagingController,
-                  builderDelegate: PagedChildBuilderDelegate<MovieItem>(
-                    itemBuilder: (context, movie, index) =>
-                        MovieItemCard(movie: movie),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _pagingController.error,
-                      onRetry: () => _pagingController.refresh(),
+                child: PagingListener(
+                  controller: _pagingController,
+                  builder: (context, state, fetchNextPage) => PagedGridView<int, MovieItem>(
+                    state: state,
+                    fetchNextPage: fetchNextPage,
+                    gridDelegate: gridDelegate(context),
+                    builderDelegate: PagedChildBuilderDelegate<MovieItem>(
+                      itemBuilder: (context, movie, index) =>
+                          MovieItemCard(movie: movie),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: state.error?.toString(),
+                        onRetry: () => _pagingController.refresh(),
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: state.error?.toString(),
+                        onRetry: () => _pagingController.refresh(),
+                      ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const ProgressView(),
+                      newPageProgressIndicatorBuilder: (_) =>
+                          const ProgressView(),
                     ),
-                    newPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _pagingController.error,
-                      onRetry: () => _pagingController.refresh(),
-                    ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const ProgressView(),
-                    newPageProgressIndicatorBuilder: (_) =>
-                        const ProgressView(),
-                    // noItemsFoundIndicatorBuilder: (_) => NoItemsFoundIndicator(),
-                    // noMoreItemsIndicatorBuilder: (_) => NoMoreItemsIndicator(),
                   ),
                 ),
               ),

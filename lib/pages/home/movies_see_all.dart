@@ -24,8 +24,10 @@ class _MoviesSeeAllState extends State<MoviesSeeAll> {
 
   @override
   void initState() {
-    _pagingController = PagingController(firstPageKey: 1)
-      ..addPageRequestListener(_fetchPage);
+    _pagingController = PagingController<int, MovieItem>(
+      getNextPageKey: (state) => (state.keys?.last ?? 0) + 1,
+      fetchPage: _fetchPage,
+    );
     super.initState();
   }
 
@@ -35,7 +37,7 @@ class _MoviesSeeAllState extends State<MoviesSeeAll> {
     super.dispose();
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future<List<MovieItem>> _fetchPage(int pageKey) async {
     try {
       final repository = RepositoryProvider.of<MoviesRepository>(context);
 
@@ -47,16 +49,9 @@ class _MoviesSeeAllState extends State<MoviesSeeAll> {
       final result = data.getValueOrNull();
 
       final movies = result?.movies ?? [];
-      final isLastPage = movies.length < _pageSize;
-
-      if (isLastPage) {
-        _pagingController.appendLastPage(movies);
-      } else {
-        final nextPageKey = (result?.page ?? pageKey) + 1;
-        _pagingController.appendPage(movies, nextPageKey);
-      }
+      return movies;
     } catch (error) {
-      _pagingController.error = error;
+      throw error;
     }
   }
 
@@ -81,33 +76,37 @@ class _MoviesSeeAllState extends State<MoviesSeeAll> {
           onRefresh: () async {
             _pagingController.refresh();
           },
-          child: PagedGridView<int, MovieItem>(
-            showNewPageProgressIndicatorAsGridChild: false,
-            showNewPageErrorIndicatorAsGridChild: false,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: gridDelegate(context),
-            pagingController: _pagingController,
-            builderDelegate: PagedChildBuilderDelegate<MovieItem>(
-              itemBuilder: (context, movie, index) =>
-                  MovieItemCard(movie: movie),
-              firstPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
-                error: _pagingController.error,
-                onTryAgain: () => _pagingController.refresh(),
+          child: PagingListener(
+            controller: _pagingController,
+            builder: (context, state, fetchNextPage) => PagedGridView<int, MovieItem>(
+              state: state,
+              fetchNextPage: fetchNextPage,
+              showNewPageProgressIndicatorAsGridChild: false,
+              showNewPageErrorIndicatorAsGridChild: false,
+              showNoMoreItemsIndicatorAsGridChild: false,
+              gridDelegate: gridDelegate(context),
+              builderDelegate: PagedChildBuilderDelegate<MovieItem>(
+                itemBuilder: (context, movie, index) =>
+                    MovieItemCard(movie: movie),
+                firstPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
+                  error: state.error ?? 'Unknown error',
+                  onTryAgain: () => _pagingController.refresh(),
+                ),
+                newPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
+                  error: state.error ?? 'Unknown error',
+                  onTryAgain: () => fetchNextPage(),
+                ),
+                firstPageProgressIndicatorBuilder: (_) => Container(
+                  margin: const EdgeInsets.all(16.0),
+                  child: const ProgressView(),
+                ),
+                newPageProgressIndicatorBuilder: (_) => Container(
+                  margin: const EdgeInsets.all(16.0),
+                  child: const ProgressView(),
+                ),
+                // noItemsFoundIndicatorBuilder: (_) => NoItemsFoundIndicator(),
+                // noMoreItemsIndicatorBuilder: (_) => NoMoreItemsIndicator(),
               ),
-              newPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
-                error: _pagingController.error,
-                onTryAgain: () => _pagingController.retryLastFailedRequest(),
-              ),
-              firstPageProgressIndicatorBuilder: (_) => Container(
-                margin: const EdgeInsets.all(16.0),
-                child: const ProgressView(),
-              ),
-              newPageProgressIndicatorBuilder: (_) => Container(
-                margin: const EdgeInsets.all(16.0),
-                child: const ProgressView(),
-              ),
-              // noItemsFoundIndicatorBuilder: (_) => NoItemsFoundIndicator(),
-              // noMoreItemsIndicatorBuilder: (_) => NoMoreItemsIndicator(),
             ),
           ),
         ),

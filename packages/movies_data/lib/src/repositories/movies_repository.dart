@@ -5,6 +5,8 @@ import 'package:movies_data/src/api/movie_api_impl.dart';
 import 'package:movies_data/src/repositories/base_repository.dart';
 import 'package:movies_api/src/models/navi/navilist.dart';
 import 'package:movies_api/src/models/navi/navi_newest.dart';
+import 'package:movies_data/src/mock/mock_data.dart';
+import 'dart:async';
 
 const topRated = 'top_rated';
 const upcoming = 'upcoming';
@@ -13,6 +15,11 @@ const nowPlaying = 'now_playing';
 const popular = 'popular';
 const imageUrl = 'https://image.tmdb.org/t/p/w500';
 const originalImageUrl = 'https://image.tmdb.org/t/p/original';
+
+// 是否使用mock数据
+const bool USE_MOCK_DATA = true;
+// API超时时间设置（毫秒）
+const int API_TIMEOUT = 5000; 
 
 enum MovieType { TOP_RATED, UPCOMING, LATEST, NOW_PLAYING, POPULAR }
 
@@ -58,22 +65,33 @@ class MoviesRepository extends BaseRepository {
     required MovieType type,
   }) =>
       launchWithCatchError(() async {
-        final result = await movieApiService.getMovieByType(
-          type: type.getType,
-          page: page,
-        );
+        // 如果使用mock数据，直接返回
+        if (USE_MOCK_DATA) {
+          return MockDataProvider.getMockMoviesList(page);
+        }
+        
+        try {
+          // 设置超时
+          final result = await movieApiService.getMovieByType(
+            type: type.getType,
+            page: page,
+          ).timeout(Duration(milliseconds: API_TIMEOUT));
 
-        final movies = result.results!.map(
-          (element) => MovieItem(
-            id: element.id.toString(),
-            title: element.title.toString(),
-            rate: element.voteAverage.toString(),
-            posterPath: imageUrl + element.posterPath.toString(),
-            backdropPath: originalImageUrl + element.backdropPath.toString(),
-          ),
-        );
+          final movies = result.results!.map(
+            (element) => MovieItem(
+              id: element.id.toString(),
+              title: element.title.toString(),
+              rate: element.voteAverage.toString(),
+              posterPath: imageUrl + element.posterPath.toString(),
+              backdropPath: originalImageUrl + element.backdropPath.toString(),
+            ),
+          );
 
-        return MoviesList(movies: movies.toList(), page: result.page);
+          return MoviesList(movies: movies.toList(), page: result.page);
+        } on TimeoutException {
+          // 超时时返回mock数据
+          return MockDataProvider.getMockMoviesList(page);
+        }
       });
 
   Future<ResponseState<MoviesList>> getMoviesByType({
@@ -81,22 +99,35 @@ class MoviesRepository extends BaseRepository {
     required MovieType type,
   }) =>
       launchWithCatchError(() async {
-        final result = await movieApiService.getMovieByType(
-          type: type.getType,
-          page: page,
-        );
+        // 如果使用mock数据，直接返回
+        if (USE_MOCK_DATA) {
+          return MockDataProvider.getMockMoviesList(page);
+        }
+        
+        try {
+          // 设置超时
+          final result = await movieApiService.getMovieByType(
+            type: type.getType,
+            page: page,
+          ).timeout(Duration(milliseconds: API_TIMEOUT));
 
-        final movies = result.results!.map(
-          (element) => MovieItem(
-            id: element.id.toString(),
-            title: element.title.toString(),
-            rate: element.voteAverage.toString(),
-            posterPath: imageUrl + element.posterPath.toString(),
-            backdropPath: originalImageUrl + element.backdropPath.toString(),
-          ),
-        );
+          final movies = result.results!.map(
+            (element) => MovieItem(
+              id: element.id.toString(),
+              title: element.title.toString(),
+              rate: element.voteAverage.toString(),
+              posterPath: imageUrl + element.posterPath.toString(),
+              backdropPath: originalImageUrl + element.backdropPath.toString(),
+              uploadUserUri: 'https://via.placeholder.com/150?text=用户',
+              uploadUserNickname: '用户1',
+            ),
+          );
 
-        return MoviesList(movies: movies.toList(), page: result.page);
+          return MoviesList(movies: movies.toList(), page: result.page);
+        } on TimeoutException {
+          // 超时时返回mock数据
+          return MockDataProvider.getMockMoviesList(page);
+        }
       });
 
   Future<ResponseState<MoviesList>> getMoviesByQuery({
@@ -168,29 +199,55 @@ class MoviesRepository extends BaseRepository {
 
   Future<ResponseState<MovieDetail>> getMovieDetail(String movieId) =>
       launchWithCatchError(() async {
-        final movie = await movieApiService.getMovieDetail(movieId: movieId);
-        return MovieDetail(
-          id: movie.id.toString(),
-          title: movie.originalTitle.toString(),
-          poserPath: imageUrl + movie.posterPath.toString(),
-          backdropPath: originalImageUrl + movie.backdropPath.toString(),
-          duration: movie.runtime.toString(),
-          rating: movie.voteAverage.toString(),
-          releaseData: movie.releaseDate.toString(),
-          genres: movie.genres!.map((e) => e.name.toString()).toList(),
-          overview: movie.overview.toString(),
-          language: movie.originalLanguage.toString(),
-        );
+        // 如果使用mock数据，直接返回
+        if (USE_MOCK_DATA) {
+          return MockDataProvider.getMockMovieDetail(movieId);
+        }
+        
+        try {
+          // 尝试调用API并设置超时
+          final movie = await movieApiService.getMovieDetail(
+            movieId: movieId
+          ).timeout(Duration(milliseconds: API_TIMEOUT));
+          
+          return MovieDetail(
+            id: movie.id.toString(),
+            title: movie.originalTitle.toString(),
+            poserPath: imageUrl + movie.posterPath.toString(),
+            backdropPath: originalImageUrl + movie.backdropPath.toString(),
+            duration: movie.runtime.toString(),
+            rating: movie.voteAverage.toString(),
+            releaseData: movie.releaseDate.toString(),
+            genres: movie.genres!.map((e) => e.name.toString()).toList(),
+            overview: movie.overview.toString(),
+            language: movie.originalLanguage.toString(),
+          );
+        } on TimeoutException {
+          // 超时时返回mock数据
+          return MockDataProvider.getMockMovieDetail(movieId);
+        }
       });
 
   /// get all genres
   Future<ResponseState<List<GenreItem>>> getGenres() =>
       launchWithCatchError(() async {
-        final result = await movieApiService.getAllGenres();
+        // 如果使用mock数据，直接返回
+        if (USE_MOCK_DATA) {
+          return MockDataProvider.getMockGenres();
+        }
+        
+        try {
+          // 尝试调用API并设置超时
+          final result = await movieApiService.getAllGenres()
+              .timeout(Duration(milliseconds: API_TIMEOUT));
 
-        return result.genres!
-            .map((e) => GenreItem(id: e.id, name: e.name))
-            .toList();
+          return result.genres!
+              .map((e) => GenreItem(id: e.id, name: e.name))
+              .toList();
+        } on TimeoutException {
+          // 超时时返回mock数据
+          return MockDataProvider.getMockGenres();
+        }
       });
 
   ///  get all Categrys
@@ -275,23 +332,37 @@ class MoviesRepository extends BaseRepository {
     required String navireskey,
   }) =>
       launchWithCatchError(() async {
-        final result = await movieApiService.getMoviesByNewest(
-            page: page, navireskey: navireskey);
+        // 如果使用mock数据，直接返回
+        if (USE_MOCK_DATA) {
+          return MockDataProvider.getMockMoviesList(page);
+        }
+        
+        try {
+          // 尝试调用API并设置超时
+          final result = await movieApiService.getMoviesByNewest(
+            page: page, 
+            navireskey: navireskey
+          ).timeout(Duration(milliseconds: API_TIMEOUT));
 
-        final movies =
-            result.map((element) => NaviNewestItem.fromJson(element));
-        final movviess = movies.toList().map((element) => MovieItem(
-              id: element.resKey ?? "",
-              title: element.videoTitle ?? "",
-              rate: element.durationStr ?? "",
-              posterPath: element.videoCover2 ?? "",
-              uploadUserNickname: element.uploadUserInfo?.nickName ?? "",
-              uploadUserUri: element.uploadUserInfo?.avatarUri ?? "",
-              createdTick: '$element.createdTic ?? 0',
-              playTimes: '$element.playTimes ?? 0',
-              backdropPath: element.videoPreview ?? "",
-            ));
-        return MoviesList(movies: movviess.toList(), page: page++);
+          // 根据实际API返回结构处理
+          final movies = result.map((element) {
+            final item = NaviNewestItem.fromJson(element);
+            return MovieItem(
+              id: item.resKey ?? "",
+              title: item.videoTitle ?? "",
+              rate: item.durationStr ?? "",
+              posterPath: item.videoCover2 ?? "",
+              backdropPath: item.videoPreview ?? "",
+              uploadUserUri: item.uploadUserInfo?.avatarUri ?? 'https://via.placeholder.com/150?text=用户',
+              uploadUserNickname: item.uploadUserInfo?.nickName ?? '用户',
+            );
+          }).toList();
+
+          return MoviesList(movies: movies, page: page);
+        } on TimeoutException {
+          // 超时时返回mock数据
+          return MockDataProvider.getMockMoviesList(page);
+        }
       });
 
   // getAllNaviList

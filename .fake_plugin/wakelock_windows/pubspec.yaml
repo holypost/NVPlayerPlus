@@ -1,0 +1,16 @@
+name: wakelock_windows
+description: Dummy package to bypass plugin resolution.
+version: 0.0.1
+
+environment:
+  sdk: '^3.7.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      windows:
+        pluginClass: WakelockWindowsPlugin

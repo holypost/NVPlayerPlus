@@ -31,14 +31,15 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
   // final _scrollController = ScrollController();
   final GlobalKey globalKey = GlobalKey();
   final GlobalKey keyContainer = GlobalKey();
-
-  // bool _isPlaying = false;
-  // bool _isVisible = false; // 记录Widget是否可见
+  
+  PagingState<int, MovieItem> _state = PagingState();
 
   @override
   void initState() {
-    _pagingController = PagingController(firstPageKey: 1)
-      ..addPageRequestListener(_fetchPage);
+    _pagingController = PagingController<int, MovieItem>(
+      getNextPageKey: (state) => (state.keys?.last ?? 0) + 1,
+      fetchPage: _fetchPage,
+    );
     super.initState();
     // _scrollController.addListener(_scrollListener);
   }
@@ -94,7 +95,7 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
     // }
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future<List<MovieItem>> _fetchPage(int pageKey) async {
     try {
       final repository = RepositoryProvider.of<MoviesRepository>(context);
 
@@ -108,8 +109,7 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
       final result = data.getValueOrNull();
 
       final movies = result?.movies ?? [];
-      final isLastPage = movies.length < _pageSize;
-
+      
       for (var element in movies) {
         VideoPlayerController controller = VideoPlayerController.network(
           element.backdropPath
@@ -123,14 +123,9 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
         _controllerList.add(controller);
       }
 
-      if (isLastPage) {
-        _pagingController.appendLastPage(movies);
-      } else {
-        final nextPageKey = (result?.page ?? pageKey) + 1;
-        _pagingController.appendPage(movies, nextPageKey);
-      }
+      return movies;
     } catch (error) {
-      _pagingController.error = error;
+      throw error;
     }
   }
 
@@ -166,7 +161,7 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
                   // key: ValueKey(index), //给每个子widget添加一个动态key
                   height: 212,
                   width: double.infinity,
-                  child: _controllerList[index].value.isInitialized
+                  child: index < _controllerList.length && _controllerList[index].value.isInitialized
                       ? Container(
                           color: Colors.black,
                           width: double.infinity,
@@ -248,26 +243,19 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
         width: double.infinity,
         child: Stack(
           children: [
-            SizedBox(
-              height: 30,
-              width: 30,
-              child: CircleAvatar(
-                backgroundColor: Colors.black,
-                backgroundImage: NetworkImage((movie.uploadUserUri ?? "")
-                    .replaceAll("https://w1.zikl.xyz", "http://45.125.51.92")),
+            CircleAvatar(
+              radius: 15,
+              backgroundImage: NetworkImage(
+                movie.uploadUserUri ?? '',
               ),
             ),
             Container(
-              margin: const EdgeInsets.only(left: 40, top: 5),
-              child: SizedBox(
-                width: double.infinity / 2,
-                height: 40,
-                child: Text(
-                  movie.uploadUserNickname ?? "",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.left,
-                  maxLines: 1,
-                ),
+              width: double.infinity,
+              margin: const EdgeInsets.only(left: 35.0),
+              child: Text(
+                movie.uploadUserNickname ?? '',
+                maxLines: 2,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
           ],
@@ -276,56 +264,20 @@ class _HomeTabNeweatState extends State<HomeTabNeweat> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // backgroundColor: Theme.of(context).colorScheme.background,
-      // appBar: AppBar(
-      //   leading: IconButton(
-      //     onPressed: () {
-      //       Navigator.of(context).pop();
-      //     },
-      //     icon: const Icon(Icons.arrow_back_sharp),
-      //   ),
-      //   title: Text(widget.categroy_home.navbarName ?? ""),
-      //   elevation: 0.0,
-      // ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 0.0),
-        child: RefreshIndicator(
-          color: Theme.of(context).colorScheme.onPrimary,
-          onRefresh: () async {
-            _pagingController.refresh();
-          },
-          child: PagedGridView<int, MovieItem>(
-            key: keyContainer,
-            showNewPageProgressIndicatorAsGridChild: false,
-            showNewPageErrorIndicatorAsGridChild: false,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: gridDelegateNewest(context),
-            // scrollController: _scrollController,
-            pagingController: _pagingController,
-            builderDelegate: PagedChildBuilderDelegate<MovieItem>(
-              itemBuilder: (context, movie, index) =>
-                  newestVideoItem(context, movie, index),
-              firstPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
-                error: _pagingController.error,
-                onTryAgain: () => _pagingController.refresh(),
-              ),
-              newPageErrorIndicatorBuilder: (_) => _FirstPageErrorIndicator(
-                error: _pagingController.error,
-                onTryAgain: () => _pagingController.retryLastFailedRequest(),
-              ),
-              firstPageProgressIndicatorBuilder: (_) => Container(
-                margin: const EdgeInsets.all(16.0),
-                child: const ProgressView(),
-              ),
-              newPageProgressIndicatorBuilder: (_) => Container(
-                margin: const EdgeInsets.all(16.0),
-                child: const ProgressView(),
-              ),
-              // noItemsFoundIndicatorBuilder: (_) => NoItemsFoundIndicator(),
-              // noMoreItemsIndicatorBuilder: (_) => NoMoreItemsIndicator(),
-            ),
-          ),
+    return PagingListener(
+      controller: _pagingController,
+      builder: (context, state, fetchNextPage) => PagedGridView<int, MovieItem>(
+        state: state,
+        fetchNextPage: fetchNextPage,
+        builderDelegate: PagedChildBuilderDelegate<MovieItem>(
+          itemBuilder: (context, item, index) => newestVideoItem(context, item, index),
+          invisibleItemsThreshold: 5,
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          childAspectRatio: 0.7,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          crossAxisCount: 2,
         ),
       ),
     );
